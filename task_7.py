@@ -1,30 +1,27 @@
 from pyspark import sql, SparkConf, SparkContext
-from pyspark.sql.functions import udf, array, col
-from pyspark.sql.types import DoubleType, IntegerType
-
+from operator import add
 
 conf = SparkConf().setAppName("task_1")
 sc = SparkContext(conf=conf)
-sqlContext = sql.SQLContext(sc)
 
+albums = sc.textFile("albums.csv", 1)
 
-avg = udf(lambda array: sum(array)/len(array), DoubleType())
+artists = sc.textFile("artists.csv", 1)
 
-df = sqlContext.read.csv("albums.csv")
-df_artists = sqlContext.read.csv("artists.csv")
-df_artists_r = df_artists.select(*(col(x).alias(x + '_artists') for x in df_artists.columns))
+def tup(x):
+  s = x.split(",")
+  critics = [float(s[7]), float(s[8]), float(s[9])]
+  return (s[1], (s[0],sum(critics)/3))
 
-marksColumns = [col("_c7"), col("_c8"), col("_c9")]
+albums_calculated = albums.map(tup)
 
-averageFunc = sum(x for x in marksColumns)/len(marksColumns)
+res = albums_calculated.sortBy(lambda x: x[1][1], False).take(10)
 
-newdf = df.withColumn('total', averageFunc)
+top = sc.parallelize(res)
 
-newdf = newdf.withColumn("_c0", df["_c0"].cast(IntegerType()))
+artists_c = artists.map(lambda x: (x.split(",")[0], x.split(",")[5]))
 
-topdf = newdf.sort(["total","_c0"], ascending=[False, True]).limit(10)
+joined = artists_c.join(top)
 
-df_j = df_artists_r.join(topdf, df_artists_r._c0_artists == topdf._c1)
-
-df_j.select("_c0", "total", "_c5_artists").show()
-
+joined.map(lambda y: '{var1}\t{var2}\t{var3}'.format(var1=y[1][1][0], var2=y[1][1][1], var3=y[1][0].encode("utf-8"))) \
+  .coalesce(1).saveAsTextFile("result_7.tsv")

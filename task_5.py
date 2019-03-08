@@ -1,12 +1,17 @@
 from pyspark import sql, SparkConf, SparkContext
-from pyspark.sql.functions import countDistinct, sum
-
+from operator import add
 
 conf = SparkConf().setAppName("task_1")
 sc = SparkContext(conf=conf)
-sqlContext = sql.SQLContext(sc)
 
-df = sqlContext.read.csv("albums.csv")
-df.show()
+albums = sc.textFile("albums.csv", 1)
 
-df.groupBy("_c3").agg(sum("_c6")).sort(["sum(_c6)", "_c3"], ascending=[False, True]).coalesce(1).write.option("delimiter", "\t").csv("result_5.tsv")
+def tup(x):
+  return (x.split(",")[3], int(x.split(",")[6]))
+
+albums_aid = albums.map(tup)
+
+res = albums_aid.reduceByKey(add).sortBy(lambda x: (x[1] * -1, x[0]), True)
+
+res.map(lambda y: '{var1}\t{var2}'.format(var1=y[0], var2=y[1])) \
+  .coalesce(1).saveAsTextFile("result_5.tsv")

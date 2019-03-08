@@ -2,9 +2,11 @@ from pyspark import sql, SparkConf, SparkContext
 
 conf = SparkConf().setAppName("task_1")
 sc = SparkContext(conf=conf)
-sqlContext = sql.SQLContext(sc)
 
-df = sqlContext.read.csv("artists.csv")
-df = df.withColumn("_c4", df["_c4"].cast(sql.types.IntegerType()))
+raw_data = sc.textFile("artists.csv", 1)
 
-print(df.agg({"_c4": "min"}).collect()[0][0])
+split = raw_data.map(lambda x: x.split(",")[4])
+
+num = split.map(lambda x: int(x))
+
+print(num.min())

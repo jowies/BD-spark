@@ -1,25 +1,19 @@
 from pyspark import sql, SparkConf, SparkContext
-from pyspark.sql.functions import udf, array, col
-from pyspark.sql.types import DoubleType, IntegerType
-
+from operator import add
 
 conf = SparkConf().setAppName("task_1")
 sc = SparkContext(conf=conf)
-sqlContext = sql.SQLContext(sc)
 
+albums = sc.textFile("albums.csv", 1)
 
-avg = udf(lambda array: sum(array)/len(array), DoubleType())
+def tup(x):
+  s = x.split(",")
+  critics = [float(s[7]), float(s[8]), float(s[9])]
+  return (s[0], sum(critics)/3)
 
-df = sqlContext.read.csv("albums.csv")
+albums_calculated = albums.map(tup)
 
-marksColumns = [col("_c7"), col("_c8"), col("_c9")]
+res = albums_calculated.sortBy(lambda x: x[1], False).take(10)
 
-averageFunc = sum(x for x in marksColumns)/len(marksColumns)
-
-newdf = df.withColumn('total', averageFunc)
-
-newdf = newdf.withColumn("_c0", df["_c0"].cast(IntegerType()))
-
-topdf = newdf.sort(["total","_c0"], ascending=[False, True]).limit(10)
-
-topdf.select("_c0", "total").show()
+sc.parallelize(res).map(lambda y: '{var1}\t{var2}'.format(var1=y[0], var2=y[1])) \
+  .coalesce(1).saveAsTextFile("result_6.tsv")

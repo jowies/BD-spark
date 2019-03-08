@@ -1,8 +1,10 @@
-from pyspark import sql, SparkConf, SparkContext
+from pyspark import SparkConf, SparkContext
 
 conf = SparkConf().setAppName("task_1")
 sc = SparkContext(conf=conf)
-sqlContext = sql.SQLContext(sc)
 
-df = sqlContext.read.csv("albums.csv")
-print(df.select("_c3").distinct().count())
+raw_data = sc.textFile("albums.csv", 1)
+
+split = raw_data.map(lambda x: x.split(",")[3])
+
+print(split.distinct().count())
